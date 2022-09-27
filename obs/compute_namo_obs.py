@@ -1,4 +1,3 @@
-
 from utils.torch_utils import *
 import cv2
 from obs.marker_detection import MarkerDetectorMulti
@@ -7,7 +6,10 @@ from obs.compute_occ_grid import OccGridComputer
 import torch
 from datetime import datetime
 
-# Input Markers
+# Markers definitions
+# Note that only one marker must be the reference marker, and make sure it can be captured by all cameras
+# Marker dim is defined in meters for the width of the square markers.
+
 markers = {
     0: {
         'name': 'reference_marker',
