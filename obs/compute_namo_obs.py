@@ -1,14 +1,13 @@
 
 from utils.torch_utils import *
 import cv2
-import time
 from obs.marker_detection import MarkerDetectorMulti
 from obs.compute_occ_grid import OccGridComputer
 
 import torch
 from datetime import datetime
 
-# input marker
+# Input Markers
 markers = {
     0: {
         'name': 'reference_marker',
@@ -56,7 +55,11 @@ def rotate_point(x, y, theta):
 
 
 class NamoObsComputer():
+
     def __init__(self, save=False, record=False, grid_size=64, goal_pos=[-1.5, 2]):
+        '''
+        Computes input vector required for the namo network by reading from two cameras
+        '''
         # global variables
         self.grid_size = grid_size
         self.record = record
@@ -101,16 +104,19 @@ class NamoObsComputer():
             self.full_arr = np.ones((1, 6, 3))
 
     def get_input(self):
+        '''
+        Get detection of aruco marker poses from cameras
+        '''
         self.detections = self.marker_detector_multi.detect()
         if self.save:
             with open(self.filename, 'wb') as f:
-                self.full_arr = np.concatenate((self.full_arr, np.expand_dims(self.detections, 0)), axis=0)
+                self.full_arr = np.concatenate(
+                    (self.full_arr, np.expand_dims(self.detections, 0)), axis=0)
                 np.save(f, self.full_arr)
 
     def preprocess_input(self, actions):
         '''
-        Pre-process the input into the desired format
-
+        Pre-process the input into the desired vector format
         '''
         self.actions = actions
 
@@ -202,6 +208,9 @@ class NamoObsComputer():
             return
 
     def terminate(self):
+        '''
+        closes cv2 and camera connections
+        '''
         print('terminates observer and saving file')
         self.marker_detector_multi.close()
         if self.record:
