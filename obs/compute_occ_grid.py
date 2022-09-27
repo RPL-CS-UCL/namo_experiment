@@ -3,60 +3,17 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
-from obs.marker_detection import MarkerDetectorMulti
-
-
-# example markers description
-example_markers = {
-    0: {  # id that the marker is generated from
-        'name': 'best_marker',
-        'marker_dim': 0.1,  # actual size of marker in mm
-        'isReferenceMarker': True,  # only one marker can be the reference!
-    }
-}
-
-# input marker
-markers = {
-    0: {
-        'name': 'reference_marker',
-        'marker_dim': 0.175,
-        'isReferenceMarker': True
-    },
-    1: {
-        'name': 'box_1',
-        'marker_dim': 0.175,
-        'isReferenceMarker': False
-    },
-    2: {
-        'name': 'box_2',
-        'marker_dim': 0.175,
-        'isReferenceMarker': False
-    },
-    3: {
-        'name': 'box_3',
-        'marker_dim': 0.175,
-        'isReferenceMarker': False
-    },
-    4: {
-        'name': 'box_4',
-        'marker_dim': 0.175,
-        'isReferenceMarker': False
-    },
-    5: {
-        'name': 'box_5',
-        'marker_dim': 0.175,
-        'isReferenceMarker': False
-    },
-    6: {
-        'name': 'robot',
-        'marker_dim': 0.175,
-        'isReferenceMarker': False
-    }
-}
 
 
 class OccGridComputer():
     def __init__(self, goal_pos=[-1, 1], grid_size=64):
+        '''
+        Class for computing the occupancy grid image given the preprocessed inputs.
+
+        Note that the information about the walls are predefined and will not be changed. 
+        The dimentions of boxes and robot are predefined, their pose data
+        will be updated from the camera readings.
+        '''
         self.grid_size = grid_size
         WALL_WIDTH = 0.2
         BOX_WIDTH = 0.6
@@ -68,6 +25,8 @@ class OccGridComputer():
         self.Px = torch.tensor(list(range(self.grid_size))).unsqueeze(
             dim=-1).unsqueeze(dim=-1).repeat(1, 1, 1, 1)
         self.Py = torch.transpose(self.Px, 1, 2)
+
+        # state definition: [x_pos, y_pos, width, height, rot_in_radians]
 
         # robot
         self.robot_vertices = torch.ones((1, 1, 4, 2), dtype=torch.float)
@@ -83,6 +42,7 @@ class OccGridComputer():
         self.walls_occ_cells = torch.ones(
             (1, self.grid_size, self.grid_size), dtype=torch.float)
 
+        # test map 2 walls
         # self.walls_state = torch.tensor([[[0.5, 0.5, 3, WALL_WIDTH, np.pi/2+1e-8],
         #                                   [0, 3, 4.2, WALL_WIDTH, np.pi/2+1e-8],
         #                                   [-0.5, -3, 5.2, WALL_WIDTH, np.pi/2+1e-8],
@@ -90,8 +50,8 @@ class OccGridComputer():
         #                                   [2, 0, 6.2, WALL_WIDTH, 1e-8],
         #                                   [-3, -2, 2.2, WALL_WIDTH, 1e-8],
         #                                   [-2.5, -1, 1.2, WALL_WIDTH, np.pi/2+1e-8]]])
-
         
+        # test map 1 walls
         self.walls_state = torch.tensor([[[0.7, 0, 2.6, WALL_WIDTH, np.pi/2+1e-8],
                                           [0, 2.5, 4.2, WALL_WIDTH, np.pi/2+1e-8],
                                           [0, -2.5, 4.2, WALL_WIDTH, np.pi/2+1e-8],
@@ -135,6 +95,9 @@ class OccGridComputer():
             self.Px, self.Py, self.goal_vertices, self.rotated_goal_vertices)
 
     def update(self, detections):
+        '''
+        Updates the occupancy grid from processed camera readings (detections).
+        '''
         for (i, detection) in enumerate(detections):
             if i < len(detections)-1:
                 # print(detection)
@@ -212,30 +175,12 @@ def get_obj_states(obj_root_state, obj_name, obj_descriptions, offset, out):
     out:              shape (num_envs x num_objects x 5)
     '''
 
-    # if obj_name not in ['walls', 'boxes', 'summit']:
-    #     print('INVALID OBJECT NAME')
-
-    # l, r = 0, 1
-    # if obj_name == 'walls' or obj_name == 'boxes':
-    #     l = 1
-    #     r += len(obj_descriptions['walls'])
-    # if obj_name == 'boxes':
-    #     l += len(obj_descriptions['walls'])
-    #     r += len(obj_descriptions['boxes'])
-
-    # x_offset = offset[:, 0].unsqueeze(1)
-    # y_offset = offset[:, 1].unsqueeze(1)
     x_offset, y_offset = 0, 0
 
     out[:, :, 0] = obj_root_state[:, :, 0] + 5 + x_offset  # pos x
     out[:, :, 1] = obj_root_state[:, :, 1] + 5 + y_offset  # pos y
     out[:, :, 2] = obj_descriptions[:, :, 0]  # width
     out[:, :, 3] = obj_descriptions[:, :, 1]  # height
-
-    # out[:, :, 0] = actor_root_state[:, l:r, 0] + x_offset  # pos x
-    # out[:, :, 1] = actor_root_state[:, l:r, 1] + y_offset  # pos y
-    # out[:, :, 2] = obj_descriptions[obj_name][:, 0]  # width
-    # out[:, :, 3] = obj_descriptions[obj_name][:, 1]  # height
 
     # do a for loop here since get_euler_xyz only supports one object
     i = 0
@@ -295,6 +240,9 @@ def get_vertices(obj_state, obj_vertices, obj_rot_vertices, room_size=8, n=64):
 
 
 def get_occ_cells(Px, Py, vertices, rotated_vertices):
+    '''
+    Computes a binary occupancy cell from object vertices
+    '''
     num_obj = vertices.shape[1]
     vertices = vertices.view(-1, 1, 1, num_obj*4, 2)
     rotated_vertices = rotated_vertices.view(-1, 1, 1, num_obj*4, 2)
@@ -322,6 +270,15 @@ def get_occ_cells(Px, Py, vertices, rotated_vertices):
 
 
 def compute_occ_grid_mask(occ_grid, summit_occ_cells, boxes_occ_cells, walls_occ_cells, goal_occ_cells):
+    '''
+    computes the final occupancy grid with the following semantic data 
+
+    0: free space
+    1: walls
+    2: boxes
+    3: summit
+    4: goal
+    '''
     c = occ_grid.shape[1]
     for i in range(occ_grid.shape[1]-1):
         occ_grid[:, i, :, :] = occ_grid[:, i+1, :, :]
@@ -345,90 +302,3 @@ def compute_occ_grid_mask(occ_grid, summit_occ_cells, boxes_occ_cells, walls_occ
     occ_grid /= 4
 
     return occ_grid
-
-# if __name__ == '__main__':
-#     GRID_SIZE = 48
-#     WALL_WIDTH = 0.2
-#     BOX_WIDTH = 0.6
-
-#     marker_detector_multi = MarkerDetectorMulti(markers)
-
-#     # allocate tensors
-#     occ_grid = torch.zeros(
-#         (1, 1, GRID_SIZE, GRID_SIZE), dtype=torch.float32)
-#     Px = torch.tensor(list(range(GRID_SIZE))).unsqueeze(
-#         dim=-1).unsqueeze(dim=-1).repeat(1, 1, 1, 1)
-#     Py = torch.transpose(Px, 1, 2)
-
-#     # robot
-#     robot_vertices = torch.ones((1, 1, 4, 2), dtype=torch.float)
-#     rotated_robot_vertices = torch.ones_like(robot_vertices)
-#     robot_occ_cells = torch.ones((1, GRID_SIZE, GRID_SIZE), dtype=torch.float)
-
-#     robot_state = torch.tensor([[[-99, -99, 0.7, 0.6, 1e-8]]])
-
-#     # walls
-#     walls_vertices = torch.ones((1, 5, 4, 2), dtype=torch.float)
-#     rotated_walls_vertices = torch.ones_like(walls_vertices)
-#     walls_occ_cells = torch.ones((1, GRID_SIZE, GRID_SIZE), dtype=torch.float)
-
-#     walls_state = torch.tensor([[[0.5, 0.5, WALL_WIDTH, 3, 1e-8],
-#                                [0, 3.5, WALL_WIDTH, 4, 1e-8],
-#                                [0, -3.5, WALL_WIDTH, 4, 1e-8],
-#                                [2, 0, WALL_WIDTH, 7, np.pi/2+1e-8],
-#                                [-2, 0, WALL_WIDTH, 7, np.pi/2+1e-8]]])
-#     walls_state[:, :, 0] += 5
-#     walls_state[:, :, 1] += 5
-
-#     walls_vertices, rotated_walls_vertices = get_vertices(
-#         walls_state, walls_vertices, rotated_walls_vertices, n=GRID_SIZE)
-#     walls_occ_cells = get_occ_cells(
-#         Px, Py, walls_vertices, rotated_walls_vertices)
-
-#     # boxes
-#     boxes_vertices = torch.ones((1, 5, 4, 2), dtype=torch.float)
-#     rotated_boxes_vertices = torch.ones_like(boxes_vertices)
-#     boxes_occ_cells = torch.ones((1, GRID_SIZE, GRID_SIZE), dtype=torch.float)
-
-#     boxes_state = torch.tensor([[[-99, -99, BOX_WIDTH, BOX_WIDTH, 1e-8],
-#                                [-99, -99, BOX_WIDTH, BOX_WIDTH, 1e-8],
-#                                [-99, -99, BOX_WIDTH, BOX_WIDTH, 1e-8],
-#                                [-99, -99, BOX_WIDTH, BOX_WIDTH, 1e-8],
-#                                [-99, -99, BOX_WIDTH, BOX_WIDTH, 1e-8]]])
-#     while True:
-#         # time.sleep(1)
-#         detections = marker_detector_multi.detect()
-#         # (6 x 3) Populate data
-#         for (i, detection) in enumerate(detections):
-#             if i < len(detections)-1:
-#                 # print(detection)
-#                 # box
-#                 boxes_state[0][i][0] = detection[0]+5
-#                 boxes_state[0][i][1] = detection[1]+5
-#                 boxes_state[0][i][4] = detection[2]
-#             if i == len(detections) - 1:
-#                 # robot
-#                 robot_state[0][0][0] = detection[0]+5
-#                 robot_state[0][0][1] = detection[1]+5
-#                 robot_state[0][0][4] = detection[2]
-
-#         robot_vertices, rotated_robot_vertices = get_vertices(
-#             robot_state, robot_vertices, rotated_robot_vertices, n=GRID_SIZE)
-#         robot_occ_cells = get_occ_cells(
-#             Px, Py, robot_vertices, rotated_robot_vertices)
-
-#         boxes_vertices, rotated_boxes_vertices = get_vertices(
-#             boxes_state, boxes_vertices, rotated_boxes_vertices, n=GRID_SIZE)
-#         boxes_occ_cells = get_occ_cells(
-#             Px, Py, boxes_vertices, rotated_boxes_vertices)
-
-#         occ_grid = compute_occ_grid_mask(
-#             occ_grid, robot_occ_cells, boxes_occ_cells, walls_occ_cells)
-
-#         plot_grid(occ_grid)
-
-#         if marker_detector_multi.close():
-#             break
-
-#     cv2.destroyAllWindows()
-#     marker_detector_multi.close()
