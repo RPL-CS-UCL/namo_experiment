@@ -1,14 +1,13 @@
 from obs.compute_namo_obs import NamoObsComputer
-from network.NAMO_network import post_process, load_network
+from network.load_namo_network import post_process, load_namo_network
 
 import torch
-import time
 import cv2
 
 
 if __name__ == '__main__':
     namo_obs_computer = NamoObsComputer(grid_size=48, goal_pos=[-1.5, 2], save=False, record=False)
-    net = load_network(path='../summit_xl_gym/runs/test_map_noRot/nn/ep750.pth')
+    net = load_namo_network(path='../summit_xl_gym/runs/test_map_noRot/nn/ep750.pth')
 
     net.eval()
 

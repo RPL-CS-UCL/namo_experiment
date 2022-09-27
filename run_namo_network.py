@@ -5,7 +5,7 @@ import utils.gamepad_reader as pad
 import robot_interface as bot
 
 from obs.compute_namo_obs import NamoObsComputer
-from network.NAMO_network import post_process, load_network
+from network.load_namo_network import post_process, load_namo_network
 
 import torch
 import time
@@ -21,7 +21,7 @@ class NAMOController:
         goal_pos = [-1.5, 2]
 
         self.observer = NamoObsComputer(grid_size=48, goal_pos=goal_pos, save=save, record=record)
-        self.net = load_network(path=relative_network_path)
+        self.net = load_namo_network(path=relative_network_path)
 
         # set network to evaluation mode
         self.net.eval()
