@@ -1,13 +1,18 @@
+'''
+This script contains the function load_namo_network to intialize and load the ]
+custom multi-modal neural network from pretrained weights.
+
+rl_games needs to be installed in the environment to run this script
+'''
+
 from rl_games.algos_torch import network_builder
 
-import os
 import torch
 import torch.nn as nn
 import numpy as np
-import matplotlib.pyplot as plt
-import yaml
 import time
 
+# parameters for generating the network
 params = {
     'name': 'custom_net',
     'normalization': 'layer_norm',
@@ -63,6 +68,7 @@ params = {
         'dropout': {'p': 0}
     }}
 
+# some other parameters that the network builder expects
 other_params = {'actions_num': 2, 'input_shape': (
     2546,), 'num_seqs': 2048, 'value_size': 1}
 
@@ -100,62 +106,6 @@ def neglogp_func(x, mean, std, logstd):
         + logstd.sum(dim=-1)
 
 
-def post_process(mu, logstd):
-    sigma = torch.exp(logstd)
-    # print(mu)
-    # print(sigma)
-    distr = torch.distributions.Normal(mu, sigma)
-
-    # selected_action = distr.sample()
-    selected_action = mu
-    # neglogp = neglogp_func(selected_action, mu, sigma, logstd)
-    # result = {
-    #     'neglogpacs': torch.squeeze(neglogp),
-    #     'values': value,
-    #     'actions': selected_action,
-    #     'rnn_states': states,
-    #     'mus': mu,
-    #     'sigmas': sigma
-    # }
-
-    # clamp action to -1 and 1
-    action_tensor = torch.clamp(
-        selected_action, -1, 1)
-
-    return action_tensor.squeeze()
-
-
-def load_network(path):
-
-    # Loading trained model file
-    trained_model_path = path
-    all_parameters = load_checkpoint(trained_model_path)
-    print(all_parameters.keys())
-    trained_model_parameters = all_parameters['model']
-
-    # remove prefix from the parameter keys
-    trained_model_parameters_renamed = {}
-    for key in trained_model_parameters.keys():
-        new_key = key.split('a2c_network.')[1]
-        trained_model_parameters_renamed[new_key] = trained_model_parameters[key]
-
-    # build the neural network
-    model = customNetBuilder()
-    model.load(params)
-    net = model.build('custom_a2c', **other_params)
-
-    net.load_state_dict(trained_model_parameters_renamed)
-
-    # Example for the network input (required by jit trace)
-
-    return net
-
-    # print(example_input)
-
-
-# with open('network_config.yaml', 'r') as f:
-#     params = yaml.load(f, Loader=yaml.loader.SafeLoader)
-
 
 class customNetBuilder(network_builder.NetworkBuilder):
     def __init__(self, **kwargs):
@@ -170,8 +120,6 @@ class customNetBuilder(network_builder.NetworkBuilder):
         def __init__(self, params, **kwargs):
             actions_num = kwargs.pop('actions_num')
             input_shape = kwargs.pop('input_shape')
-            print('INPUT SHAPE')
-            print(input_shape)
             self.value_size = kwargs.pop('value_size', 1)
             self.num_seqs = num_seqs = kwargs.pop('num_seqs', 1)
             network_builder.NetworkBuilder.BaseNetwork.__init__(self)
@@ -316,27 +264,10 @@ class customNetBuilder(network_builder.NetworkBuilder):
             return
 
         def forward(self, obs):
-            # obs = obs_dict['obs']
-            # torch.save(obs[1], 'obs2.pt')
-            # print(obs.shape)
-            # print(f'input:  {obs}')
-            seq_length = 1
             states = None
             cnn_input = obs[:, :self.grid_size **
                             2 * self.cnn_num_input_channels].reshape(-1, self.cnn_num_input_channels, self.grid_size, self.grid_size)
 
-            # temp_grid = cnn_input.cpu().detach().numpy()
-            # plt.figure(figsize=(9, 4))
-            # plt.tight_layout()
-            # for i in range(1):
-            #     ax = plt.subplot(1, 3, i + 1)
-            #     ax.imshow(temp_grid[1][i])
-            #     ax.set_title(f'frame{i}')
-            #     ax.grid(False)
-            #     ax.set_xticks([])
-            #     ax.set_yticks([])
-            # plt.savefig('test_normalized_grid.png')
-            # plt.close()
 
             mlp_input = obs[:, self.grid_size **
                             2 * self.cnn_num_input_channels:]
@@ -349,11 +280,7 @@ class customNetBuilder(network_builder.NetworkBuilder):
 
                 out_cnn = cnn_input
                 out_cnn = self.actor_cnn(out_cnn)
-                # print('before')
-                # print(out_cnn.shape)
                 out_cnn = out_cnn.flatten(start_dim=1, end_dim=3)
-                # print('after')
-                # print(out_cnn.shape)
 
                 if self.intermediate_fcl:
                     out_cnn = self.actor_intermediate_fcl(out_cnn)
@@ -377,8 +304,6 @@ class customNetBuilder(network_builder.NetworkBuilder):
                         sigma = self.sigma_act(self.sigma)
                     else:
                         sigma = self.sigma_act(self.sigma(out))
-                    # print(f'mu:    {mu}')
-                    # print(f'sigma: {sigma}')
                     return mu, mu*0 + sigma, value, states
 
         def is_separate_critic(self):
@@ -440,14 +365,52 @@ class customNetBuilder(network_builder.NetworkBuilder):
         net = customNetBuilder.Network(self.params, **kwargs)
         return net
 
-    # def forward(self, input):
 
-    #     return result
+def load_namo_network(path):
+    
+    # Loading trained model file
+    trained_model_path = path
+    all_parameters = load_checkpoint(trained_model_path)
+    trained_model_parameters = all_parameters['model']
+
+    # remove prefix from the parameter keys
+    trained_model_parameters_renamed = {}
+    for key in trained_model_parameters.keys():
+        new_key = key.split('a2c_network.')[1]
+        trained_model_parameters_renamed[new_key] = trained_model_parameters[key]
+
+    # build the neural network
+    model = customNetBuilder()
+    model.load(params)
+    net = model.build('custom_a2c', **other_params)
+    
+    # load network weights
+    net.load_state_dict(trained_model_parameters_renamed)
+
+    return net
+
+
+def post_process(mu, logstd):
+    # for non-determinstic policy outputs:
+    # sigma = torch.exp(logstd)
+    # distr = torch.distributions.Normal(mu, sigma)
+    # selected_action = distr.sample()
+    
+    selected_action = mu
+
+    # clamp action to -1 and 1
+    action_tensor = torch.clamp(
+        selected_action, -1, 1)
+
+    return action_tensor.squeeze()
 
 
 if __name__ == "__main__":
-    path = '../summit_xl_gym/runs/48G_48HL_8Rot/nn/ep100.pth'
-    net = load_network(path)
+    
+    # Initialise the network with weights
+    # path = '../summit_xl_gym/runs/48G_48HL_8Rot/nn/ep100.pth'
+    path = 'weights/test_map_ep750.pth'
+    net = load_namo_network(path)
 
     # forward pass on random input
     example_input = torch.rand(1, 2546)
@@ -456,5 +419,6 @@ if __name__ == "__main__":
     # post process
     action = post_process(mu, logstd)
 
-    print('ACTION:')
+    print('---------------------------')
+    print('ACTION OUTPUT:')
     print(action)
