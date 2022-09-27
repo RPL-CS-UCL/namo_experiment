@@ -1,0 +1,37 @@
+{
+  "0": {
+    "name": "reference_marker",
+    "marker_dim": 0.24,
+    "isReferenceMarker": true
+  },
+  "1": {
+    "name": "box_1",
+    "marker_dim": 0.24,
+    "isReferenceMarker": false
+  },
+  "2": {
+    "name": "box_2",
+    "marker_dim": 0.24,
+    "isReferenceMarker": false
+  },
+  "3": {
+    "name": "box_3",
+    "marker_dim": 0.24,
+    "isReferenceMarker": false
+  },
+  "4": {
+    "name": "box_4",
+    "marker_dim": 0.24,
+    "isReferenceMarker": false
+  },
+  "5": {
+    "name": "box_5",
+    "marker_dim": 0.24,
+    "isReferenceMarker": false
+  },
+  "6": {
+    "name": "robot",
+    "marker_dim": 0.24,
+    "isReferenceMarker": false
+  }
+}
