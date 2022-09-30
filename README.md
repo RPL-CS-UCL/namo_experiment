@@ -14,6 +14,8 @@ Once the markers are set up in the scene, the information about the markers shou
 ## Camera setup
 This experiment uses two realsense cameras to accurately track the experiment. You could also modify the file `obs/marker_detector` to change the number of cameras. For each camera input we generate a `MarkerDetector` class, that is handled altogether by a wrapper class `MarkerDetectorMulti` to fuse different camera inputs. Note that a detector will not output anything if the reference frame is not found in the scene.
 
+![alt text](assets/experiment_setup.png)
+
 ## Preprocessing input
 For the specific experiment we preprocess in the camera input into a vector and a grid. The grid is computed in the file `compute_occ_grid`. The vector is generated in `compute_namo_obs`. For details on the input space please see our paper on local NAMO with DRL.
 
