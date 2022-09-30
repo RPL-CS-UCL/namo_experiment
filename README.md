@@ -17,7 +17,7 @@ This experiment uses two realsense cameras to accurately track the experiment. Y
 ## Preprocessing input
 For the specific experiment we preprocess in the camera input into a vector and a grid. The grid is computed in the file `compute_occ_grid`. The vector is generated in `compute_namo_obs`. For details on the input space please see our paper on local NAMO with DRL.
 
-![alt text][assets/architecture.png]
+![alt text](assets/architecture.png)
 
 ## Neural network forward pass
 The preprocessed input is passed into a pre-trained neural network. The network is first built in the same way as the implementation in `rl_games`: https://github.com/Denys88/rl_games, with some custom definition of forward pass. The network is then loaded with weights, we add two example weights in the `weights` folder. Note that the current versions of the network is only stable with a fixed configuration of walls which can be found in `test_map_ep750.pth`, and the `all_maps_ep1050.pth` can be used in any map settings, but may produce unstable behaviours.
