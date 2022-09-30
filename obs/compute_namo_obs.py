@@ -1,52 +1,11 @@
-from utils.torch_utils import *
 import cv2
-from obs.marker_detection import MarkerDetectorMulti
+from utils.torch_utils import *
+from obs.marker_detector import MarkerDetectorMulti
 from obs.compute_occ_grid import OccGridComputer
 
 import torch
+import json
 from datetime import datetime
-
-# Markers definitions
-# Note that only one marker must be the reference marker, and make sure it can be captured by all cameras
-# Marker dim is defined in meters for the width of the square markers.
-
-markers = {
-    0: {
-        'name': 'reference_marker',
-        'marker_dim': 0.24,
-        'isReferenceMarker': True
-    },
-    1: {
-        'name': 'box_1',
-        'marker_dim': 0.24,
-        'isReferenceMarker': False
-    },
-    2: {
-        'name': 'box_2',
-        'marker_dim': 0.24,
-        'isReferenceMarker': False
-    },
-    3: {
-        'name': 'box_3',
-        'marker_dim': 0.24,
-        'isReferenceMarker': False
-    },
-    4: {
-        'name': 'box_4',
-        'marker_dim': 0.24,
-        'isReferenceMarker': False
-    },
-    5: {
-        'name': 'box_5',
-        'marker_dim': 0.24,
-        'isReferenceMarker': False
-    },
-    6: {
-        'name': 'robot',
-        'marker_dim': 0.24,
-        'isReferenceMarker': False
-    }
-}
 
 
 def rotate_point(x, y, theta):
@@ -58,7 +17,7 @@ def rotate_point(x, y, theta):
 
 class NamoObsComputer():
 
-    def __init__(self, save=False, record=False, grid_size=64, goal_pos=[-1.5, 2]):
+    def __init__(self, markers, save=False, record=False, grid_size=64, goal_pos=[-1.5, 2]):
         '''
         Computes input vector required for the namo network by reading from two cameras
         '''

@@ -8,10 +8,14 @@ from obs.compute_namo_obs import NamoObsComputer
 from network.load_namo_network import post_process, load_namo_network
 
 import torch
+import json
 import time
 from threading import Thread, Lock
 import cv2
 
+# read marker information from json file
+with open("obs/markers.json") as f:
+    markers = json.load(f)
 
 class NAMOController:
     def __init__(self, save=False, record=False):
