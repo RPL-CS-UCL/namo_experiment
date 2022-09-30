@@ -24,7 +24,7 @@ from pykalman import KalmanFilter
 example_markers = {
     0: {  # id that the marker is generated from
         'name': 'best_marker',
-        'marker_dim': 0.1,  # actual size of marker in mm
+        'marker_dim': 0.1,  # actual size of marker in m
         'isReferenceMarker': True,  # only one marker can be the reference!
     }
 }
