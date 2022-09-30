@@ -12,52 +12,19 @@ from datetime import datetime
 
 from pykalman import KalmanFilter
 
-# example markers description
-example_markers = {
-    0: {  # id that the marker is generated from
-        'name': 'best_marker',
-        'marker_dim': 0.1,  # actual size of marker in mm
-        'isReferenceMarker': True,  # only one marker can be the reference!
-    }
-}
-
-# input marker
-markers = {
-    0: {
-        'name': 'reference_marker',
-        'marker_dim': 0.175,
-        'isReferenceMarker': True
-    },
-    1: {
-        'name': 'box1',
-        'marker_dim': 0.175,
-        'isReferenceMarker': False
-    },
-    2: {
-        'name': 'box2',
-        'marker_dim': 0.175,
-        'isReferenceMarker': False
-    },
-    3: {
-        'name': 'box3',
-        'marker_dim': 0.175,
-        'isReferenceMarker': False
-    },
-    4: {
-        'name': 'box4',
-        'marker_dim': 0.175,
-        'isReferenceMarker': False
-    }
-}
-
 
 class MarkerDetectorMulti():
     def __init__(self, markers, record=False):
+        '''
+        Handles two camera devices to detects marker poses in the scene w.r.t. a single referance marker
+        '''
         ap = argparse.ArgumentParser()
+        # change the matrices for if a different camera is used
         ap.add_argument("-k", "--K_Matrix", required=False,
                         help="Path to calibration matrix (numpy file)", default='utils/calibration_matrix_from_calib_py.npy')
         ap.add_argument("-d", "--D_Coeff", required=False,
                         help="Path to distortion coefficients (numpy file)", default='utils/distortion_coefficients_from_calib_py.npy')
+        # change marker type of other marker types are used
         ap.add_argument("-t", "--type", type=str,
                         default="DICT_4X4_250", help="Type of ArUCo tag to detect")
         self.args = vars(ap.parse_args())
@@ -72,6 +39,7 @@ class MarkerDetectorMulti():
         self.device_manager = DeviceManager(rs.context(), c)
         self.device_manager.enable_all_devices()
 
+        # define devices
         self.device1_id = '046122251230'
         self.device2_id = '138322252703'
 
@@ -95,10 +63,10 @@ class MarkerDetectorMulti():
                 # don't append the reference marker
                 continue
             self.id_map.append(key)
-            kf = KalmanFilter(transition_matrices=self.transition_matrix,
-                              observation_matrices=self.observation_matrix)
-            self.kfs.append(kf)
-        
+            # kf = KalmanFilter(transition_matrices=self.transition_matrix,
+            #                   observation_matrices=self.observation_matrix)
+            # self.kfs.append(kf)
+
     def detect(self):
         frames = self.device_manager.poll_frames()
         frame1 = list(frames[(self.device1_id, 'D400')].values())[0]
@@ -152,7 +120,8 @@ class MarkerDetectorMulti():
         return
 
     def apply_kalman_filter(self):
-        # for i in range(self.id_map):
+
+        return
 
         for i in range(1):
             measurements = self.markers_obs[:, i, :]
@@ -171,6 +140,14 @@ class MarkerDetectorMulti():
 
 class MarkerDetector():
     def __init__(self, marker_description, camera_id, record, args):
+        ''' 
+        Marker detector class to detect arbitrary number of pre-defined markers. 
+        
+        Args:
+            marker_description: Object containing marker information (see markers.json)
+            camera_id: Device id
+            record: set true to save camera feed into a video
+        '''
 
         calibration_matrix_path = args["K_Matrix"]
         distortion_coefficients_path = args["D_Coeff"]
@@ -181,15 +158,18 @@ class MarkerDetector():
 
         self.marker_description = marker_description
         self.camera_id = camera_id
-        
+
         self.record = record
         if self.record:
             timestamp = datetime.today().strftime('%m-%d-%H-%M')
             file_name = f'saved_videos/camera{camera_id}_{timestamp}.avi'
             self.out_vid = cv2.VideoWriter(
                 file_name, cv2.VideoWriter_fourcc(*'MJPG'), 10, (640, 480))
-        
+
     def detect(self, frame, cap=None):
+        '''
+        Takes a camera frame and detects markers that are in the scene
+        '''
         self.frame = frame
         self.color_image = np.asanyarray(self.frame.get_data())
         ret, detections, self.out_frame = transform_frame(
@@ -203,6 +183,35 @@ class MarkerDetector():
 
 
 if __name__ == '__main__':
+    # input marker
+    markers = {
+        0: {
+            'name': 'reference_marker',
+            'marker_dim': 0.175,
+            'isReferenceMarker': True
+        },
+        1: {
+            'name': 'box1',
+            'marker_dim': 0.175,
+            'isReferenceMarker': False
+        },
+        2: {
+            'name': 'box2',
+            'marker_dim': 0.175,
+            'isReferenceMarker': False
+        },
+        3: {
+            'name': 'box3',
+            'marker_dim': 0.175,
+            'isReferenceMarker': False
+        },
+        4: {
+            'name': 'box4',
+            'marker_dim': 0.175,
+            'isReferenceMarker': False
+        }
+    }
+
     marker_detector_multi = MarkerDetectorMulti(markers)
     while True:
         # time.sleep(1)
