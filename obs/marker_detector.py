@@ -143,10 +143,11 @@ class MarkerDetector():
         ''' 
         Marker detector class to detect arbitrary number of pre-defined markers. 
         
-        Args:
-            marker_description: Object containing marker information (see markers.json)
-            camera_id: Device id
-            record: set true to save camera feed into a video
+        Args
+        -------------------------------
+        marker_description: Object containing marker information (see markers.json)
+        camera_id: Device id
+        record: set true to save camera feed into a video
         '''
 
         calibration_matrix_path = args["K_Matrix"]
