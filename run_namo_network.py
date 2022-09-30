@@ -1,5 +1,3 @@
-
-
 import sys
 import utils.gamepad_reader as pad
 import robot_interface as bot
@@ -24,6 +22,7 @@ class NAMOController:
         
         goal_pos = [-1.5, 2]
 
+        # intialise observer and network
         self.observer = NamoObsComputer(grid_size=48, goal_pos=goal_pos, save=save, record=record)
         self.net = load_namo_network(path=relative_network_path)
 
@@ -55,19 +54,17 @@ class NAMOController:
         '''
         returns (vx, wz)
         '''
-        # return 0.5, 0
-
         # fills self.obs
         self.preprocess_input(self.action)
 
         # random_obs = torch.rand(1, 2546)
         with torch.no_grad():
             mu, logstd, _, _ = self.net(self.obs)
-            # mu, logstd, _, _ = self.net(self.obs)
             action = post_process(mu, logstd)
             vx = action[1]
             zw = action[0]
         
+        # some manual calibration 
         vx_mult = 0.65
         if vx < 0:
             vx_mult *= 0.3
@@ -83,6 +80,9 @@ class NAMOController:
 
 class padCmd:
     def __init__(self):
+        '''
+        Defines a template for all commands
+        '''
         self.vx = 0
         self.vy = 0
         self.wz = 0
@@ -94,7 +94,7 @@ class padCmd:
 class LatestCmd:
     def __init__(self, lock):
         '''
-        Sets control cmds from the network and gamepad
+        sets the latest control cmds from the network and gamepad
         '''
         self.latest_cmd = padCmd()
 
@@ -142,14 +142,16 @@ namo_controller = NAMOController(save=True, record=True)
 latest_cmd = LatestCmd(commandLock)
 
 
-def controlLogicGamepad(state, init_state, t):
+def main_thread(state, init_state, t):
     '''
-    directly sends control signals to robot, runs in main thread
+    directly sends control signals to robot, runs with time steps of 2ms
+    
+    The control signals from the network can be overwritten by the gamepad by pressing L1
+    The control signals can be terminated (to zeros for everything) by pressing L1+R1
     '''
 
     gamepad_cmd, terminate = globalgamepad.GetGamePadCmd()
     overwrite = gamepad_cmd.overwrite
-    # overwrite = True
     network_cmd = latest_cmd.get_cmd()
 
     if terminate or overwrite:
@@ -158,14 +160,12 @@ def controlLogicGamepad(state, init_state, t):
         control_cmd = network_cmd
 
     print(f'{control_cmd.vx}, {control_cmd.vy}, {control_cmd.wz}')
-    # print(f'{gamepad_cmd.vx}, {gamepad_cmd.vy}, {gamepad_cmd.wz}')
-    # print("t in milliseconds=", t)
     cmd = bot.HighCmdSimple()
     cmd.mode = 0
     cmd.gait_type = 0
     cmd.speed_level = 0
     cmd.foot_raise_height = 0
-    cmd.body_height = gamepad_cmd.height  # -0.1 to make it lower
+    cmd.body_height = gamepad_cmd.height
     myeuler = [0] * 3
     cmd.euler = myeuler
     myvelocity = [0] * 2
@@ -188,10 +188,11 @@ def controlLogicGamepad(state, init_state, t):
         cmd.mode = 1
         cmd.running_controller = False
 
+    # note that cmd must be returned
     return cmd
 
 
-def run_control_thread():
+def control_thread():
     '''
     The secondary thread which receives commands from the network at 3Hz
     '''
@@ -200,10 +201,9 @@ def run_control_thread():
     t = 0
     while True:
         t0 = time.time()
-        # get observation
+        # get observation (no speed limit)
         namo_controller.get_obs()
         print('secondary thread running')
-        # print(f'time at start: {start}')
 
         if t > control_freq_inv:
             start = time.time()
@@ -215,10 +215,8 @@ def run_control_thread():
             latest_cmd.set_cmd(vx, 0, zw)
             end = time.time()
             t = end-start
-        # to maintain control_freq_inv between each calls
-        # print(f'time at done: {end}')
-        # print(f'time taken:   {time_taken}')
-
+            
+        # maintain control_freq_inv between each calls
         t1 = time.time()
         t += (t1-t0)
 
@@ -228,7 +226,6 @@ def run_control_thread():
     cv2.destroyAllWindows()
 
 
-memory_example = True
 
 
 if __name__ == "__main__":
@@ -240,7 +237,7 @@ if __name__ == "__main__":
     object_methods = [method_name for method_name in dir(bot)
                       if callable(getattr(bot, method_name))]
 
-    thread = Thread(target=run_control_thread)
+    thread = Thread(target=control_thread)
     thread.start()
 
     # ------------------test without the robot ------------------
@@ -251,11 +248,7 @@ if __name__ == "__main__":
 
     # ------------------running on the robot-----------------
     robot = bot.HIGO1_()
-    if (memory_example):
-        # example with memory (using objects created inside the python script)
-        robot.set_controller(controlLogicGamepad)
-    else:
-        pass
+    robot.set_controller(main_thread)
 
     # executing control callback
     robot.run()
